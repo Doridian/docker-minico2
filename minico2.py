@@ -2,6 +2,7 @@
 
 from fcntl import ioctl
 from os import path
+from signal import signal, SIGINT, SIGTERM
 
 from prometheus_client import Gauge, start_http_server
 
@@ -9,7 +10,11 @@ GAUGE_CO2 = Gauge('co2', 'CO2 level in ppm')
 GAUGE_TEMP = None
 GAUGE_RH = None
 
+PATH = "/dev/minico2"
+
 HUMIDTY_OK = False
+
+running = True
 
 def decrypt(key,  data):
 	cstate = [0x48,  0x74,  0x65,  0x6D,  0x70,  0x39,  0x39,  0x65]
@@ -54,11 +59,19 @@ def settemp(temp):
 		GAUGE_TEMP = Gauge('temperature', 'Temperature in Celsius')
 	GAUGE_TEMP.set(temp)
 
-if __name__ == "__main__":
+def handle_exit_signal():
+	global running
+	running = False
+
+def main():
+	global running
+
+	signal(SIGTERM, handle_exit_signal)
+	signal(SIGINT, handle_exit_signal)
+
 	# Key retrieved from /dev/random, guaranteed to be random ;)
 	key = [0xc4, 0xc6, 0xc0, 0x92, 0x40, 0x23, 0xdc, 0x96]
 
-	PATH = "/dev/minico2"
 	if not path.exists(PATH):
 		print("%s not found" % PATH)
 		exit(1)
@@ -74,7 +87,7 @@ if __name__ == "__main__":
 
 	start_http_server(8000)
 	
-	while True:
+	while running:
 		data = list(fp.read(8))
 		decrypted = None
 		if data[4] == 0x0d and (sum(data[:3]) & 0xff) == data[3]:
@@ -100,3 +113,8 @@ if __name__ == "__main__":
 				sethum(values[0x44]/100.0)
 			if 0x41 in values:
 				sethum(values[0x41]/100.0)
+
+	fp.close()
+
+if __name__ == "__main__":
+	main()
