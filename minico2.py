@@ -59,7 +59,7 @@ def settemp(temp):
 		GAUGE_TEMP = Gauge('temperature', 'Temperature in Celsius')
 	GAUGE_TEMP.set(temp)
 
-def handle_exit_signal():
+def handle_exit_signal(*args):
 	global running
 	running = False
 
